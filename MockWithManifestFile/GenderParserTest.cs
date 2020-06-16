@@ -1,5 +1,8 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MockWithManifestFileService;
+using NSubstitute;
+using System.Reflection;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace MockWithManifestFile
@@ -7,24 +10,58 @@ namespace MockWithManifestFile
     [TestClass]
     public class GenderParserTest
     {
+
         [TestMethod]
-        public async Task TestMethod1()
+        public async Task TestWithObjectCreation()
         {
-            var p = new GenderParser();
-            var g =await p.GetGenderInfo("davide");
-            Assert.AreEqual("male", g.gender);
+            // Arrange
+            var fakeObject = new GenderInfo { name = "Davide", gender = "male" };
+
+            var fakeGenderParser = Substitute.For<IGenderParser>();
+            fakeGenderParser.GetGenderInfo(default).ReturnsForAnyArgs(fakeObject);
+
+            var sut = new MessageCreator(fakeGenderParser);
+
+            // Act
+            var message = await sut.CreateMessage("Davide");
+
+            //Assert
+            Assert.AreEqual("Hey boy!", message);
+        }
+
+        [TestMethod]
+        public async Task TestWithEmbeddedResource()
+        {
+            // Arrange
+            var fakeObject = await GetFakeGenderInfo();
+
+            var fakeGenderParser = Substitute.For<IGenderParser>();
+            fakeGenderParser.GetGenderInfo(default).ReturnsForAnyArgs(fakeObject);
+
+            var sut = new MessageCreator(fakeGenderParser);
+
+            // Act
+            var message = await sut.CreateMessage("Davide");
+
+            //Assert
+            Assert.AreEqual("Hey boy!", message);
         }
 
 
-        [TestMethod]
-        public async Task T()
+
+
+
+        public async Task<GenderInfo> GetFakeGenderInfo()
         {
-            var p = new GenderParser();
-            var m = new MessageCreator(p);
-            var message = await m.CreateMessage("davide");
+            var fileName = "MockWithManifestFileTests.Mocks.genderinfo-davide.json";
 
-            Assert.AreEqual("Hey boy!", message);
+            var stream = Assembly.GetExecutingAssembly()
+              .GetManifestResourceStream(fileName);
 
+            return await JsonSerializer.DeserializeAsync<GenderInfo>(stream, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            }).ConfigureAwait(false);
         }
     }
 }
